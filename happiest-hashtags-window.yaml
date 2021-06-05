@@ -1,0 +1,58 @@
+apiVersion: "sparkoperator.k8s.io/v1beta2"
+kind: SparkApplication
+metadata:
+    name: "happiest-hashtags-window"
+    namespace: streaming
+spec:
+    type: Scala
+    mode: cluster
+    image: "localhost:5000/twitter-analytics"
+    imagePullPolicy: Always
+    mainClass: com.tweets.HappiestHashtagsWindowBased
+    arguments:
+        - --triggerIntervalSeconds
+        - "600"
+        - --windowIntervalSeconds
+        - "3600"
+        - --topNSamples
+        - "10"
+    mainApplicationFile: "local:///opt/spark/twitter-analytics-assembly-0.0.1-SNAPSHOT.jar"
+    sparkVersion: "3.1.2"
+    restartPolicy:
+        type: Always
+        onFailureRetryInterval: 10
+        onSubmissionFailureRetryInterval: 20
+    sparkConf:
+        "spark.driver.cores": "1"
+        "spark.executor.cores": "2"
+        "spark.executor.heartbeatInterval": "20s"
+        "spark.sql.shuffle.partitions": "4"
+        "spark.sql.streaming.checkpointLocation": "/tmp"      #"s3a://..."
+        "spark.sql.streaming.metricsEnabled": "true"
+    driver:
+        coreRequest: "200m"
+        coreLimit: "1000m"
+        memory: "2g"
+        serviceAccount: so-spark
+        labels:
+            app: happiest-hashtags-window
+        envVars:
+            KUBERNETES_HOST: "https://kubernetes.default.svc"
+            KUBERNETES_PORT: "443"
+    executor:
+        coreRequest: "200m"
+        coreLimit: "2000m"
+        instances: 2
+        memory: "4g"
+        memoryOverhead: "1g"
+        labels:
+            app: happiest-hashtags-window
+        envVars:
+            KUBERNETES_HOST: "https://kubernetes.default.svc"
+            KUBERNETES_PORT: "443"
+    monitoring:
+        exposeDriverMetrics: true
+        exposeExecutorMetrics: true
+        prometheus:
+            jmxExporterJar: "/prometheus/jmx_prometheus_javaagent-0.11.0.jar"
+            port: 9090
